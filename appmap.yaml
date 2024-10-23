@@ -1,0 +1,11 @@
+default:
+  verbose: false
+  output_type: json
+  strict: false 
+
+modules: []
+
+ignore:
+  classes: []
+  functions: []
+  modules: []

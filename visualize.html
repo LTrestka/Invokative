@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Visualization with Cytoscape.js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.21.1/cytoscape.min.js"></script>
+    <style>
+        #cy {
+            width: 100%;
+            height: 800px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div id="cy"></div>
+<script src="data.js"></script>
+<script>
+
+// Initialize the Cytoscape graph
+let elements = [];
+Object.keys(brain.sections).forEach((section) => {
+    const functions = brain.sections[section];
+    elements.push({group: 'nodes', data: { id: section, label: section, type: 'section' }, style: { shape: 'round-rectangle' }});
+    functions.forEach(func => {
+        elements.push({group: 'nodes', data: { id: func, label: func, section, type: 'function' }, style: { shape: 'ellipse' } });
+        elements.push({group: 'edges', data: { source: section, target: func, arrowTo: func, type: 'section-function' }});
+    });
+});
+brain.connections.forEach(([source, target, startTime, endTime, processingTime]) => {
+    elements.push({group: 'edges', data: { source: source, target: target, startTime, endTime, weight: processingTime, type: 'connection' }});
+});
+const cy = cytoscape({
+    container: document.getElementById('cy'), // container to render in
+    elements: elements,
+    style: [ // Node and edge styling
+        {
+            selector: 'node[type="section"]',
+            style: {
+                'label': 'data(label)',
+                'text-valign': 'center',
+                'text-halign': 'center',
+                'background-color': '#97C2FC',
+                'width': '200px',
+                'height': '200px',
+                'font-size': '50px',
+                'color': '#000',
+                'border-width': '2px',
+                'border-color': '#000'
+            }
+        },
+        {
+            selector: 'node[type="function"]',
+            style: {
+                'label': 'data(label)',
+                'text-valign': 'center',
+                'text-halign': 'center',
+                'background-color': 'gray',
+                'width': '300px',
+                'height': '100px',
+                'font-size': '35px',
+                'color': '#000',
+            }
+        },
+        {
+            selector: 'edge',
+            style: {
+                'width': 'mapData(weight, 0, 1, 2, 6)',  // Edge width varies based on weight
+                'line-color': '#A9A9A9',
+                'target-arrow-color': '#A9A9A9',
+                'target-arrow-shape': 'triangle',
+                'curve-style': 'bezier',
+            }
+        },
+        {
+            selector: 'edge[type="connection"]',
+            style: {
+                'width': 'mapData(weight, 0, 1, 2, 6)',  // Edge width varies based on weight
+                'line-color': '#A9A9A9',
+                'target-arrow-color': '#A9A9A9',
+                'target-arrow-shape': 'triangle',
+                'curve-style': 'round-taxi',
+                'opacity': 0
+            }
+        }
+    ],
+
+    layout: {
+        name: 'breadthfirst',  // Cose layout pulls connected nodes closer
+        animate: true,
+        randomize: false,
+        nodeRepulsion: 5000,
+        animationDuration: 1500,
+        idealEdgeLength: 9999,
+        edgeElasticity: 9999,
+        fit: true,
+        transform: function (node, position ){ return position; }
+    }
+});
+function animateFlow(edge, total_processing_time) {
+    console.log(edge);
+    e = cy.$(edge);
+    e.animation({
+        style: {
+            'line-dash-offset': '20',  // Move the dash backward to simulate flow,
+            'line-color': '#ddff79',
+        },
+        duration:1000,  // Speed of the flow effect
+        complete: function() {
+            // Once the animation completes, reset the offset and repeat
+            e.style('line-dash-offset', 0);  // Reset dash offset
+            animateFlow(edge, total_processing_time);  // Repeat the animation
+        }
+    }).play();
+}
+// Function to animate nodes and edges
+function animateConnection(source, target, startTime, endTime, processingTime) {
+    // Animation for the source node (turning red)
+   
+    const sourceSection = cy.$(`#${source}`).data('section');
+    const targetSection = cy.$(`#${target}`).data('section');
+    const total_processing_time = processingTime * 1000;
+    
+
+    cy.$(`#${sourceSection}`).animation({
+        style: { 'background-color': 'lime' },
+        duration: (total_processing_time / 28),
+    }).play().promise('completed').then(() => {
+        cy.$(`edge[arrowTo="${source}"]`).animation({
+            style: { 'line-color': 'lime', 'line-style': 'dashed', 'target-arrow-color': 'lime', 'opacity': 1 },
+            duration: (total_processing_time / 28),
+        }).play().promise('completed').then(() => {
+            cy.$(`#${source}`).animation({
+                style: { 'background-color': 'lime' },
+                duration: (total_processing_time / 28),
+            }).play().promise('completed').then(() => {
+                cy.$(`#${targetSection}`).animation({
+                    style: { 'background-color': 'lime' },
+                    duration: (total_processing_time / 28),
+                }).play().promise('completed').then(() => {
+                    cy.$(`edge[arrowTo="${target}"]`).animation({
+                        style: { 'line-color': 'lime', 'line-style': 'dashed', 'target-arrow-color': 'lime', 'opacity': 1 },
+                        duration: (total_processing_time / 28),
+                    }).play().promise('completed').then(() => {
+                        cy.$(`#${target}`).animation({
+                            style: { 'background-color': 'lime' },
+                            duration: (total_processing_time / 14) * 3,
+                        }).play().promise('completed').then(() => {
+                            cy.$(`edge[source="${source}"][target="${target}"][startTime="${startTime}"][endTime"${endTime}"]`).animation({
+                                style: { 'line-color': 'lime', 'line-style': 'dashed', 'width': 5, 'target-arrow-color': 'lime', 'opacity': 1 },
+                                duration: (total_processing_time / 14) * 4,
+                                complete: function() {
+                                    animateFlow(`edge[source="${source}"][target="${target}"][startTime="${startTime}"][endTime"${endTime}"]`, total_processing_time);  // Recursively animate flow
+                                }
+                            }).play().promise('completed').then(() => {
+                                cy.$(`#${targetSection}`).animation({
+                                    style: { 'background-color': 'gray' },
+                                    duration: (total_processing_time / 28),
+                                }).play().promise('completed').then(() => {
+                                    cy.$(`edge[arrowTo="${target}"]`).animation({   
+                                        style: { 'line-color': 'gray', 'line-style': 'dashed', 'target-arrow-color': 'gray', 'opacity': 1 },
+                                        duration: (total_processing_time / 28),
+                                    }).play().promise('completed').then(() => {
+                                        cy.$(`#${target}`).animation({
+                                            style: { 'background-color': 'gray' },
+                                            duration: (total_processing_time / 28),
+                                        }).play().promise('completed').then(() => {
+                                            cy.$(`edge[source="${source}"][target="${target}"][startTime="${startTime}"][endTime"${endTime}"]`).animation({
+                                                style: { 'line-color': 'gray', 'line-style': 'dashed', 'width': 5, 'target-arrow-color': 'gray', 'opacity': 0 },
+                                                duration: (total_processing_time / 14),
+                                            }).play().promise('completed').then(() => {
+                                                cy.$(`#${source}`).animation({
+                                                    style: { 'background-color': 'gray' },
+                                                    duration: (total_processing_time / 28),
+                                                }).play().promise('completed').then(() => {
+                                                    cy.$(`edge[arrowTo="${source}"]`).animation({   
+                                                        style: { 'line-color': 'gray', 'line-style': 'dashed', 'target-arrow-color': 'gray', 'opacity': 1 },
+                                                        duration: (total_processing_time / 28),
+                                                    }).play().promise('completed').then(() => {
+                                                        cy.$(`#${sourceSection}`).animation({
+                                                            style: { 'background-color': 'gray' },
+                                                            duration: (total_processing_time / 28),
+                                                        }).play().promise('completed');
+                                                    });
+                                                });
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+  
+}
+// Sequentially animate connections based on processing time
+function animateConnectionsSequentially(connections, index = 0) {
+    if (index < connections.length) {
+        const [source, target, startTime, endTime, processingTime] = connections[index];
+        animateConnection(source, target, startTime, endTime, processingTime);
+        // Call the next animation after this one completes
+        setTimeout(() => {
+            animateConnectionsSequentially(connections, index + 1);
+        }, processingTime * 1000);
+    }
+}
+
+// Start the animations
+animateConnectionsSequentially(brain.connections);
+
+
+
+</script>
+
+</body>
+</html>

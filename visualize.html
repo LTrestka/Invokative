@@ -26,7 +26,7 @@ Object.keys(brain.sections).forEach((section) => {
     elements.push({group: 'nodes', data: { id: section, label: section, type: 'section' }, style: { shape: 'round-rectangle' }});
     functions.forEach(func => {
         elements.push({group: 'nodes', data: { id: func, label: func, section, type: 'function' }, style: { shape: 'ellipse' } });
-        elements.push({group: 'edges', data: { source: section, target: func, arrowTo: func, type: 'section-function' }});
+        elements.push({group: 'edges', data: { source: section, target: func , arrowTo: func, type: 'section-function' }});
     });
 });
 brain.connections.forEach(([source, target, startTime, endTime, processingTime]) => {
@@ -42,7 +42,7 @@ const cy = cytoscape({
                 'label': 'data(label)',
                 'text-valign': 'center',
                 'text-halign': 'center',
-                'background-color': '#97C2FC',
+                'background-color': 'gray',
                 'width': '200px',
                 'height': '200px',
                 'font-size': '50px',
@@ -71,7 +71,10 @@ const cy = cytoscape({
                 'line-color': '#A9A9A9',
                 'target-arrow-color': '#A9A9A9',
                 'target-arrow-shape': 'triangle',
+                'target-arrow-fill': 'hollow',
                 'curve-style': 'bezier',
+                'width': 12,
+                'control-point-weights': 0.25
             }
         },
         {
@@ -81,7 +84,8 @@ const cy = cytoscape({
                 'line-color': '#A9A9A9',
                 'target-arrow-color': '#A9A9A9',
                 'target-arrow-shape': 'triangle',
-                'curve-style': 'round-taxi',
+                'target-arrow-size': '50',
+                'curve-style': 'straight-triangle',
                 'opacity': 0
             }
         }
@@ -115,88 +119,90 @@ function animateFlow(edge, total_processing_time) {
         }
     }).play();
 }
-// Function to animate nodes and edges
-function animateConnection(source, target, startTime, endTime, processingTime) {
+
+function addAnimation(elem, processingTime, on=true) {
+    const duration = processingTime;
+    const color = on ? 'lime' : 'gray';
+    return elem.animation({
+        style: { 'background-color': color },
+        duration: processingTime,
+    });
+}
+
+function addArrowAnimation(elem, processingTime, on=true, alwaysShow=false) {
+    let opacity = on ? 1 : 0;
+    if (alwaysShow) {
+        opacity = 1;
+    }
+    const color = on ? 'lime' : 'gray';
+    const arrowColor = on ? 'red' : 'gray';
+    return elem.animation({
+        style: { 
+            'line-color': color, 'line-style': 'dashed', 'target-arrow-color': 'lime', 'opacity': opacity
+            },
+        duration: processingTime/2,
+    });
+}
+
+function flipArrowDirection(elem, processingTime) {
+    return elem.animation({
+        style: {  'line-color': 'lime', 'line-style': 'dashed', 'target-arrow-color': 'lime', 'opacity': 1 },
+        duration: processingTime/2
+    });
+}
+
+async function animateConnection(source, target, startTime, endTime, processingTime) {
     // Animation for the source node (turning red)
    
     const sourceSection = cy.$(`#${source}`).data('section');
     const targetSection = cy.$(`#${target}`).data('section');
     const total_processing_time = processingTime * 1000;
-    
+    const shortAnimation = (total_processing_time / 28);
+    const longAnimation = (total_processing_time / 7);
 
-    cy.$(`#${sourceSection}`).animation({
-        style: { 'background-color': 'lime' },
-        duration: (total_processing_time / 28),
-    }).play().promise('completed').then(() => {
-        cy.$(`edge[arrowTo="${source}"]`).animation({
-            style: { 'line-color': 'lime', 'line-style': 'dashed', 'target-arrow-color': 'lime', 'opacity': 1 },
-            duration: (total_processing_time / 28),
-        }).play().promise('completed').then(() => {
-            cy.$(`#${source}`).animation({
-                style: { 'background-color': 'lime' },
-                duration: (total_processing_time / 28),
-            }).play().promise('completed').then(() => {
-                cy.$(`#${targetSection}`).animation({
-                    style: { 'background-color': 'lime' },
-                    duration: (total_processing_time / 28),
-                }).play().promise('completed').then(() => {
-                    cy.$(`edge[arrowTo="${target}"]`).animation({
-                        style: { 'line-color': 'lime', 'line-style': 'dashed', 'target-arrow-color': 'lime', 'opacity': 1 },
-                        duration: (total_processing_time / 28),
-                    }).play().promise('completed').then(() => {
-                        cy.$(`#${target}`).animation({
-                            style: { 'background-color': 'lime' },
-                            duration: (total_processing_time / 14) * 3,
-                        }).play().promise('completed').then(() => {
-                            cy.$(`edge[source="${source}"][target="${target}"][startTime="${startTime}"][endTime"${endTime}"]`).animation({
-                                style: { 'line-color': 'lime', 'line-style': 'dashed', 'width': 5, 'target-arrow-color': 'lime', 'opacity': 1 },
-                                duration: (total_processing_time / 14) * 4,
-                                complete: function() {
-                                    animateFlow(`edge[source="${source}"][target="${target}"][startTime="${startTime}"][endTime"${endTime}"]`, total_processing_time);  // Recursively animate flow
-                                }
-                            }).play().promise('completed').then(() => {
-                                cy.$(`#${targetSection}`).animation({
-                                    style: { 'background-color': 'gray' },
-                                    duration: (total_processing_time / 28),
-                                }).play().promise('completed').then(() => {
-                                    cy.$(`edge[arrowTo="${target}"]`).animation({   
-                                        style: { 'line-color': 'gray', 'line-style': 'dashed', 'target-arrow-color': 'gray', 'opacity': 1 },
-                                        duration: (total_processing_time / 28),
-                                    }).play().promise('completed').then(() => {
-                                        cy.$(`#${target}`).animation({
-                                            style: { 'background-color': 'gray' },
-                                            duration: (total_processing_time / 28),
-                                        }).play().promise('completed').then(() => {
-                                            cy.$(`edge[source="${source}"][target="${target}"][startTime="${startTime}"][endTime"${endTime}"]`).animation({
-                                                style: { 'line-color': 'gray', 'line-style': 'dashed', 'width': 5, 'target-arrow-color': 'gray', 'opacity': 0 },
-                                                duration: (total_processing_time / 14),
-                                            }).play().promise('completed').then(() => {
-                                                cy.$(`#${source}`).animation({
-                                                    style: { 'background-color': 'gray' },
-                                                    duration: (total_processing_time / 28),
-                                                }).play().promise('completed').then(() => {
-                                                    cy.$(`edge[arrowTo="${source}"]`).animation({   
-                                                        style: { 'line-color': 'gray', 'line-style': 'dashed', 'target-arrow-color': 'gray', 'opacity': 1 },
-                                                        duration: (total_processing_time / 28),
-                                                    }).play().promise('completed').then(() => {
-                                                        cy.$(`#${sourceSection}`).animation({
-                                                            style: { 'background-color': 'gray' },
-                                                            duration: (total_processing_time / 28),
-                                                        }).play().promise('completed');
-                                                    });
-                                                });
-                                            });
-                                        });
-                                    });
-                                });
-                            });
-                        });
-                    });
-                });
-            });
-        });
-    });
-  
+    // Elements to animate
+    const sourceBox = cy.$(`#${sourceSection}`);
+    const boxToNodeArrowSource = cy.$(`edge[source="${sourceSection}"][arrowTo="${source}"]`);
+    const sourceNode = cy.$(`#${source}`);
+
+    const targetBox = cy.$(`#${targetSection}`);
+    const boxToNodeArrowTarget = cy.$(`edge[source="${targetSection}"][arrowTo="${target}"]`);
+    const targetNode = cy.$(`#${target}`);
+    
+    const nodeToNodeArrow = cy.$(`edge[source="${source}"][target="${target}"][type="connection"]`);
+
+    
+    
+    // Animations
+    const sourceBoxOn = addAnimation(sourceBox, shortAnimation);
+    const boxToNodeArrowSourceOn = addArrowAnimation(boxToNodeArrowSource, shortAnimation, true, true);
+    const sourceNodeOn = addAnimation(sourceNode, shortAnimation);
+
+    const targetBoxOn = addAnimation(targetBox, shortAnimation);
+    const boxToNodeArrowTargetOn = addArrowAnimation(boxToNodeArrowTarget, shortAnimation, true, true);
+    const targetNodeOn = addAnimation(targetNode, shortAnimation);
+
+    const sourceBoxOff = addAnimation(sourceBox, shortAnimation, false);
+    const boxToNodeArrowSourceOff = addArrowAnimation(boxToNodeArrowSource, shortAnimation, false, true);
+    const sourceNodeOff = addAnimation(sourceNode, shortAnimation, false);
+
+    const targetBoxOff = addAnimation(targetBox, shortAnimation, false);
+    const boxToNodeArrowTargetOff = addArrowAnimation(boxToNodeArrowTarget, shortAnimation, false, true);
+    const targetNodeOff = addAnimation(targetNode, shortAnimation, false);
+
+    const arrowOn = addArrowAnimation(nodeToNodeArrow, longAnimation);
+    const arrowFlip = flipArrowDirection(nodeToNodeArrow, longAnimation);
+    const arrowOff = addArrowAnimation(nodeToNodeArrow, longAnimation, false);
+
+    const animationSequence = [
+        sourceBoxOn, boxToNodeArrowSourceOn, sourceNodeOn, arrowOn, targetBoxOn, boxToNodeArrowTargetOn, targetNodeOn,
+        arrowFlip, arrowOff, targetNodeOff, boxToNodeArrowTargetOff, sourceNodeOff, boxToNodeArrowSourceOff
+    ];
+
+    for (const animation of animationSequence) {
+        await animation.play().promise();
+    }
+
 }
 // Sequentially animate connections based on processing time
 function animateConnectionsSequentially(connections, index = 0) {
